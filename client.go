@@ -303,59 +303,92 @@ func (c *Client) processCommands(log *slog.Logger, msg packet.Message) (init boo
 		case cmds.TlsrCmd:
 			c.state.TallyBySource = t
 		case *cmds.TimeCmd:
-			tc := models.Timecode(*t)
-			done := false
-			for !done {
-				select {
-				case retCh, open := <-c.timeRequests:
-					if !open {
-						done = true
-					}
-					retCh <- tc
-					close(retCh)
-				default:
-					// no more in channel
-					done = true
-				}
-			}
-			c.state.TimeCodeLastChange = tc
-		case *cmds.KedvCmd:
-			key := strconv.Itoa(int(t.ME)) + ":" + strconv.Itoa(int(t.Keyer))
-			c.state.KeyerDVE[key] = &models.KeyerDVE{
-				ME:                   t.ME,
-				Keyer:                t.Keyer,
-				Rate:                 t.Rate,
-				SizeX:                t.SizeX,
-				SizeY:                t.SizeY,
-				PositionX:            t.PositionX,
-				PositionY:            t.PositionY,
-				Rotation:             t.Rotation,
-				BorderEnabled:        t.BorderEnabled,
-				BorderOuterWidth:     t.BorderOuterWidth,
-				BorderInnerWidth:     t.BorderInnerWidth,
-				BorderOuterSoftness:  t.BorderOuterSoftness,
-				BorderInnerSoftness:  t.BorderInnerSoftness,
-				BorderBevelSoftness:  t.BorderBevelSoftness,
-				BorderBevelPosition:  t.BorderBevelPosition,
-				BorderBevel:          t.BorderBevel,
-				BorderHue:            t.BorderHue,
-				BorderSaturation:     t.BorderSaturation,
-				BorderLuminance:      t.BorderLuminance,
-				LightSourceDirection: t.LightSourceDirection,
-				LightSourceAltitude:  t.LightSourceAltitude,
-				MaskEnabled:          t.MaskEnabled,
-				MaskTop:              t.MaskTop,
-				MaskBottom:           t.MaskBottom,
-				MaskLeft:             t.MaskLeft,
-				MaskRight:            t.MaskRight,
-				KeyFrame:             t.KeyFrame,
-			}
-			log.Debug("Got keyer DVE", "ME", t.ME, "Keyer", t.Keyer)
+			c.handleTimeCmd(t)
+		case *cmds.KeOnCmd:
+			c.handleKeOnCmd(t)
+		case *cmds.KeBPCmd:
+			c.handleKeBPCmd(t)
+		case *cmds.KeDVCmd:
+			c.handleKeDVCmd(t)
 		default:
 			log.Debug("Unhandled packet type")
 		}
 	}
 	return
+}
+
+func (c *Client) handleTimeCmd(t *cmds.TimeCmd) {
+	tc := models.Timecode(*t)
+	done := false
+	for !done {
+		select {
+		case retCh, open := <-c.timeRequests:
+			if !open {
+				done = true
+			}
+			retCh <- tc
+			close(retCh)
+		default:
+			// no more in channel
+			done = true
+		}
+	}
+	c.state.TimeCodeLastChange = tc
+}
+
+func (c *Client) handleKeOnCmd(t *cmds.KeOnCmd) {
+	me := int(t.ME)
+	keyer := int(t.Keyer)
+	if c.state.Keyers[me] == nil {
+		c.state.Keyers[me] = make(map[int]models.KeyerState)
+	}
+	state := c.state.Keyers[me][keyer]
+	// OnAir might be a bitmask: bit 0 = program, bit 1 = preview
+	state.OnAir = (t.OnAir & 0x01) != 0
+	state.PreviewOnAir = (t.OnAir & 0x02) != 0
+	c.state.Keyers[me][keyer] = state
+}
+
+func (c *Client) handleKeBPCmd(t *cmds.KeBPCmd) {
+	me := int(t.ME)
+	keyer := int(t.Keyer)
+	if c.state.Keyers[me] == nil {
+		c.state.Keyers[me] = make(map[int]models.KeyerState)
+	}
+	state := c.state.Keyers[me][keyer]
+	state.FillSource = t.FillSource
+	state.KeySource = t.KeySource
+	c.state.Keyers[me][keyer] = state
+}
+
+func (c *Client) handleKeDVCmd(t *cmds.KeDVCmd) {
+	me := int(t.ME)
+	keyer := int(t.Keyer)
+	if c.state.Keyers[me] == nil {
+		c.state.Keyers[me] = make(map[int]models.KeyerState)
+	}
+	state := c.state.Keyers[me][keyer]
+	if state.DVE == nil {
+		state.DVE = &models.DVEProperties{}
+	}
+	state.DVE.Rate = t.Rate
+	state.DVE.SizeX = t.SizeX
+	state.DVE.SizeY = t.SizeY
+	state.DVE.PositionX = t.PositionX
+	state.DVE.PositionY = t.PositionY
+	state.DVE.Rotation = t.Rotation
+	state.DVE.BorderEnabled = t.BorderEnabled
+	state.DVE.BorderStyle = t.BorderStyle
+	state.DVE.BorderWidth = t.BorderWidth
+	state.DVE.BorderOpacity = t.BorderOpacity
+	state.DVE.ShadowEnabled = t.ShadowEnabled
+	state.DVE.LightSource = t.LightSource
+	state.DVE.MaskEnabled = t.MaskEnabled
+	state.DVE.MaskTop = t.MaskTop
+	state.DVE.MaskBottom = t.MaskBottom
+	state.DVE.MaskLeft = t.MaskLeft
+	state.DVE.MaskRight = t.MaskRight
+	c.state.Keyers[me][keyer] = state
 }
 
 const ackDebounceInterval = time.Millisecond * 20

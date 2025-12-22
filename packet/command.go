@@ -66,8 +66,12 @@ func UnmarshalCommand(data []byte) (Command, error) {
 		cmd = make(cmds.TlsrCmd)
 	case "Time":
 		cmd = new(cmds.TimeCmd)
+	case "KeOn":
+		cmd = new(cmds.KeOnCmd)
+	case "KeBP":
+		cmd = new(cmds.KeBPCmd)
 	case "KeDV":
-		cmd = new(cmds.KedvCmd)
+		cmd = new(cmds.KeDVCmd)
 	default:
 		// unknown command (yet)
 		cmd = cmds.NewUnknownCommand(slug)

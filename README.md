@@ -54,7 +54,7 @@ _This project is in its early stages. Below is a list of commands that are curre
 | `KeLm` | Keyer Luma                          | ⭕️    |                                                                          |
 | `KeCk` | Keyer Chroma                        | ⭕️    |                                                                          |
 | `KePt` | Keyer Pattern                       | ⭕️    |                                                                          |
-| `KeDV` | Keyer DVE                           | ✅     | `state.KeyerDVE`                                                         |
+| `KeDV` | Keyer DVE                           | ✅     | `state.Keyers[ME][Keyer].DVE`                                            |
 | `KeFS` | Keyer Fly                           | ⭕️    |                                                                          |
 | `KKFP` | Keyer Fly Keyframe                  | ⭕️    |                                                                          |
 | `DskB` | Downstream Keyer Base               | ⭕️    |                                                                          |
