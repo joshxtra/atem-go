@@ -2,15 +2,16 @@ package packet
 
 import (
 	"bytes"
+	"log/slog"
+	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDeserializeHeader(t *testing.T) {
-	log := logrus.New()
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	cases := map[string]struct {
 		pl             []byte
@@ -51,7 +52,7 @@ func TestDeserializeHeader(t *testing.T) {
 
 	for name, test := range cases {
 		t.Run(name, func(t *testing.T) {
-			log := log.WithField("test", t.Name())
+			log := log.With("test", t.Name())
 			buf := bytes.NewBuffer(test.pl)
 
 			msg, err := Deserialize(log, buf)

@@ -3,6 +3,7 @@ package atem
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"math/rand"
 	"net"
 	"strconv"
@@ -15,7 +16,6 @@ import (
 	"github.com/mraerino/atem-go/packet/cmds"
 	"github.com/netlify/netlify-commons/util"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type Client struct {
@@ -23,7 +23,7 @@ type Client struct {
 	port int
 
 	conn *net.UDPConn
-	log  logrus.FieldLogger
+	log  *slog.Logger
 
 	started   util.AtomicBool
 	connected util.AtomicBool
@@ -37,11 +37,11 @@ type Client struct {
 	timeRequests chan chan models.Timecode
 }
 
-func NewClient(log logrus.FieldLogger, host string) *Client {
+func NewClient(log *slog.Logger, host string) *Client {
 	return NewClientWithPort(log, host, 9910)
 }
 
-func NewClientWithPort(log logrus.FieldLogger, host string, port int) *Client {
+func NewClientWithPort(log *slog.Logger, host string, port int) *Client {
 	return &Client{
 		host:      host,
 		port:      port,
@@ -162,7 +162,7 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 					rerr = err
 					break
 				}
-				c.log.WithField("len", n).Debug("Got packet")
+				c.log.Debug("Got packet", "len", n)
 
 				buf := bytes.NewBuffer(raw[:n])
 				msg, err := packet.Deserialize(c.log, buf)
@@ -170,12 +170,17 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 					rerr = err
 					break
 				}
-				log := c.log.WithField("seq", msg.SeqNum)
-				log.WithFields(msg.Flags.Debug()).Debug("Read packet")
+				log := c.log.With("seq", msg.SeqNum)
+				flags := msg.Flags.Debug()
+				attrs := make([]interface{}, 0, len(flags)*2)
+				for k, v := range flags {
+					attrs = append(attrs, k, v)
+				}
+				log.Debug("Read packet", attrs...)
 
 				oldSession := atomic.SwapUint32(&c.sessionID, uint32(msg.SessionID))
 				if oldSession != uint32(msg.SessionID) {
-					log.WithField("session", msg.SessionID).Info("Using new session id from switcher")
+					log.Info("Using new session id from switcher", "session", msg.SessionID)
 				}
 
 				if msg.Flags.Has(packet.FlagRetrans) {
@@ -195,7 +200,7 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 
 				gotInit, err := c.processCommands(log, msg)
 				if err != nil {
-					log.WithError(err).Warn("Error while processing commands")
+					log.Warn("Error while processing commands", "error", err)
 				}
 
 				if gotInit && !connected {
@@ -205,7 +210,7 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 				}
 			}
 			if rerr != nil {
-				c.log.WithError(rerr).Warn("Failed to read")
+				c.log.Warn("Failed to read", "error", rerr)
 				if !connected {
 					errCh <- errors.Wrap(rerr, "Failed to read message")
 				}
@@ -222,21 +227,21 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 	return errCh
 }
 
-func (c *Client) processCommands(log logrus.FieldLogger, msg packet.Message) (init bool, err error) {
+func (c *Client) processCommands(log *slog.Logger, msg packet.Message) (init bool, err error) {
 	c.stateMutex.Lock()
 	defer c.stateMutex.Unlock()
 	for _, cmd := range msg.Commands {
-		log.WithField("slug", cmd.Slug()).Debug("Starting to process command")
+		log.Debug("Starting to process command", "slug", cmd.Slug())
 
 		switch t := cmd.(type) {
 		case *cmds.UnknownCommand:
-			log.WithField("slug", t.Slug()).Debug("Got unknown command")
+			log.Debug("Got unknown command", "slug", t.Slug())
 		case *cmds.IncmCmd:
 			init = true
 		case *cmds.VerCmd:
 			c.state.Version.Major = int(t.Major)
 			c.state.Version.Minor = int(t.Minor)
-			log.WithFields(logrus.Fields{"major": t.Major, "minor": t.Minor}).Debug("Got version")
+			log.Debug("Got version", "major", t.Major, "minor", t.Minor)
 		case *cmds.PinCmd:
 			c.state.Config.ProductName = t.Value()
 		case *cmds.WarnCmd:
@@ -323,11 +328,11 @@ func (c *Client) ackWorker(ctx context.Context, queue <-chan uint16) {
 	lastSend := time.Now()
 	var latestNum uint16
 	for {
-		log := c.log.WithField("num", latestNum)
+		log := c.log.With("num", latestNum)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			log.WithError(ctx.Err()).Debug("ACK worker stopped")
+			log.Debug("ACK worker stopped", "error", ctx.Err())
 			return
 		case seqNum, open := <-queue:
 			if !open {
@@ -350,7 +355,7 @@ func (c *Client) ackWorker(ctx context.Context, queue <-chan uint16) {
 			msg.AckID = latestNum
 			err := c.send(msg)
 			if err != nil {
-				log.WithError(err).Warn("Failed sending ack")
+				log.Warn("Failed sending ack", "error", err)
 			}
 			lastSend = time.Now()
 		}

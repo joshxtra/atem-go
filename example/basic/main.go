@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/mraerino/atem-go"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	log := logrus.New()
-	log.Level = logrus.InfoLevel
-	log.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 
 	client := atem.NewClient(log, "172.22.26.50")
 
@@ -24,7 +23,8 @@ func main() {
 
 	err := client.Start(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to start")
+		log.Error("Failed to start", "error", err)
+		os.Exit(1)
 	}
 	log.Info("Connected")
 

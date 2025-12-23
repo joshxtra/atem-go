@@ -1,7 +1,5 @@
 package packet
 
-import "github.com/sirupsen/logrus"
-
 const (
 	FlagNeedACK Flags = 1 << iota
 	FlagInit
@@ -16,7 +14,7 @@ func (f Flags) Has(mask Flags) bool {
 	return uint8(f)&uint8(mask) != 0
 }
 
-func (f Flags) Debug() logrus.Fields {
+func (f Flags) Debug() map[string]interface{} {
 	flags := map[string]Flags{
 		"needACK":        FlagNeedACK,
 		"init":           FlagInit,
@@ -24,7 +22,7 @@ func (f Flags) Debug() logrus.Fields {
 		"hello":          FlagHello,
 		"ack":            FlagACK,
 	}
-	fields := make(logrus.Fields)
+	fields := make(map[string]interface{})
 	for name, val := range flags {
 		fields[name] = f.Has(val)
 	}

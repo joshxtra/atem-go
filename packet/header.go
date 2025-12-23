@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"log/slog"
 
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type Message struct {
@@ -46,7 +46,7 @@ func (m *Message) Serialize(buf *bytes.Buffer) {
 	binary.BigEndian.PutUint16(buf.Bytes(), cmdAndLen)
 }
 
-func Deserialize(log logrus.FieldLogger, buf *bytes.Buffer) (Message, error) {
+func Deserialize(log *slog.Logger, buf *bytes.Buffer) (Message, error) {
 	msg := Message{}
 	bytes := buf.Next(headerSize)
 	if len(bytes) < headerSize {

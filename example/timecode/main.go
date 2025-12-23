@@ -3,20 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/mraerino/atem-go"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	log := logrus.New()
-	log.Level = logrus.InfoLevel
-	log.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 
 	client := atem.NewClient(log, "172.22.26.50")
 
@@ -25,7 +24,8 @@ func main() {
 
 	err := client.Start(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("Failed to start")
+		log.Error("Failed to start", "error", err)
+		os.Exit(1)
 	}
 	log.Info("Connected")
 
@@ -33,14 +33,15 @@ func main() {
 	for {
 		select {
 		case <-ctx.Done():
-			log.WithError(ctx.Err()).Fatal("exiting")
+			log.Error("exiting", "error", ctx.Err())
+			os.Exit(1)
 		case <-ticker:
 		}
 
 		ctx, cancel := context.WithTimeout(ctx, time.Second*2)
 		tc, err := client.Timecode(ctx)
 		if err != nil {
-			log.WithError(err).Warn("failed to get time")
+			log.Warn("failed to get time", "error", err)
 		} else {
 			fmt.Printf("Time: %#v\n", tc)
 		}
