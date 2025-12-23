@@ -1,5 +1,6 @@
 package models
 
+// InputProperties describes the properties of a video input source.
 type InputProperties struct {
 	SourceIndex VideoSource
 	LongName    string
@@ -12,8 +13,10 @@ type InputProperties struct {
 // Generate String() methods
 //go:generate go run golang.org/x/tools/cmd/stringer -type=ExternalPortType,PortType -linecomment -output=inputs_string.go
 
+// ExternalPortType represents the type of external port.
 type ExternalPortType uint8
 
+// External port type constants.
 const (
 	ExternalPortTypeInternal  ExternalPortType = iota // Internal
 	ExternalPortTypeSDI                               // SDI
@@ -23,8 +26,10 @@ const (
 	ExternalPortTypeSVideo                            // SVideo
 )
 
+// PortType represents the type of port.
 type PortType uint8
 
+// Port type constants.
 const (
 	PortTypeExternal        PortType = iota // External
 	PortTypeBlack                           // Black
@@ -35,8 +40,9 @@ const (
 	PortTypeSuperSource                     // SuperSource
 )
 
+// Port type constants for ME outputs and auxiliaries.
 const (
-	PortTypeMEOutput PortType = 128 + iota // ME Output
-	PortTypeAuxilary                       // Auxilary
-	PortTypeMask                           // Mask
+	PortTypeMEOutput  PortType = 128 + iota // ME Output
+	PortTypeAuxiliary                       // Auxiliary
+	PortTypeMask                            // Mask
 )

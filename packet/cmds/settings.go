@@ -6,12 +6,15 @@ import (
 	"github.com/mraerino/atem-go/models"
 )
 
+// InprCmd represents an input properties command.
 type InprCmd models.InputProperties
 
+// Slug returns the command slug.
 func (InprCmd) Slug() string {
 	return "InPr"
 }
 
+// MarshalBinary serializes the command to binary format.
 func (i *InprCmd) MarshalBinary() ([]byte, error) {
 	pl := make([]byte, 36)
 	pl[0] = byte(i.SourceIndex)
@@ -26,6 +29,7 @@ func (i *InprCmd) MarshalBinary() ([]byte, error) {
 	return pl, nil
 }
 
+// UnmarshalBinary deserializes the command from binary format.
 func (i *InprCmd) UnmarshalBinary(data []byte) error {
 	src := binary.BigEndian.Uint16(data)
 	i.SourceIndex = models.VideoSource(src)

@@ -3,8 +3,11 @@ package models
 import "fmt"
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=VideoMode -linecomment
+
+// VideoMode represents the video mode/format.
 type VideoMode uint8
 
+// Video mode constants.
 const (
 	VideoMode525i59_94NTSC     VideoMode = iota // 525i59.94 NTSC
 	VideoMode625i50PAL                          // 625i50 PAL
@@ -32,7 +35,8 @@ const (
 	VideoMode1080p60                       // 1080p60
 )
 
-// todo: remove
+// MarshalJSON marshals the video mode to JSON format.
+// TODO: remove this once we have a proper JSON encoder
 func (m VideoMode) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, m.String())), nil
 }

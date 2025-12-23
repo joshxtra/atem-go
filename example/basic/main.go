@@ -1,3 +1,4 @@
+// Package main provides a basic example of using the ATEM client.
 package main
 
 import (
@@ -24,7 +25,8 @@ func main() {
 	err := client.Start(ctx)
 	if err != nil {
 		log.Error("Failed to start", "error", err)
-		os.Exit(1)
+		cancel()
+		os.Exit(1) //nolint:gocritic // exitAfterDefer: acceptable in example code
 	}
 	log.Info("Connected")
 

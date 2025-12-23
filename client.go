@@ -1,10 +1,12 @@
+// Package atem provides a Go client for communicating with Blackmagic Design ATEM switchers.
 package atem
 
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"log/slog"
-	"math/rand"
 	"net"
 	"strconv"
 	"sync"
@@ -18,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Client represents a connection to an ATEM switcher.
 type Client struct {
 	host string
 	port int
@@ -37,10 +40,12 @@ type Client struct {
 	timeRequests chan chan models.Timecode
 }
 
+// NewClient creates a new ATEM client with the default port (9910).
 func NewClient(log *slog.Logger, host string) *Client {
 	return NewClientWithPort(log, host, 9910)
 }
 
+// NewClientWithPort creates a new ATEM client with a custom port.
 func NewClientWithPort(log *slog.Logger, host string, port int) *Client {
 	return &Client{
 		host:      host,
@@ -53,6 +58,7 @@ func NewClientWithPort(log *slog.Logger, host string, port int) *Client {
 	}
 }
 
+// State returns the current switcher state.
 func (c *Client) State() SwitcherState {
 	c.stateMutex.RLock()
 	state := c.state
@@ -60,8 +66,10 @@ func (c *Client) State() SwitcherState {
 	return state
 }
 
+// ErrAlreadyStarted is returned when attempting to start an already started client.
 var ErrAlreadyStarted = errors.New("Already started")
 
+// Start begins the connection to the ATEM switcher.
 func (c *Client) Start(ctx context.Context) error {
 	if c.started.Set(true) {
 		return ErrAlreadyStarted
@@ -94,6 +102,7 @@ func (c *Client) Start(ctx context.Context) error {
 	}
 }
 
+// InitPayload is the initial payload sent to establish a connection with the ATEM switcher.
 var InitPayload = []byte{1, 0, 0, 0, 0, 0, 0, 0}
 
 func (c *Client) sendInit() error {
@@ -116,7 +125,9 @@ func (c *Client) send(msg *packet.Message) error {
 }
 
 func (c *Client) resetSession() {
-	sessionID := rand.Uint32()
+	var sessionIDBytes [4]byte
+	_, _ = rand.Read(sessionIDBytes[:])
+	sessionID := binary.BigEndian.Uint32(sessionIDBytes[:])
 	atomic.StoreUint32(&c.sessionID, sessionID)
 	atomic.StoreUint32(&c.seqNum, 0)
 	c.connected.Set(false)
@@ -366,7 +377,7 @@ func (c *Client) makeHeader(flags ...packet.Flags) *packet.Message {
 	seqNum := atomic.AddUint32(&c.seqNum, 1) - 1 // allow seq num to start at 0
 	return &packet.Message{
 		Flags:     packet.FlagsFrom(flags...),
-		SessionID: uint16(atomic.LoadUint32(&c.sessionID)),
-		SeqNum:    uint16(seqNum),
+		SessionID: uint16(atomic.LoadUint32(&c.sessionID)), //nolint:gosec // sessionID is always within uint16 range
+		SeqNum:    uint16(seqNum),                          //nolint:gosec // seqNum is always within uint16 range
 	}
 }

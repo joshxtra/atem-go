@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Message represents an ATEM protocol message containing commands.
 type Message struct {
 	Flags     Flags  // max: 5 bit
 	Length    uint16 // max: 11 bit
@@ -22,6 +23,7 @@ type Message struct {
 const headerSize = 12
 const lengthBitmask = 0xFFFF >> 5 // first 5 bits are preserved for flags
 
+// Serialize writes the message to the buffer.
 func (m *Message) Serialize(buf *bytes.Buffer) {
 	header := make([]byte, headerSize)
 	binary.BigEndian.PutUint16(header[2:], m.SessionID)
@@ -37,16 +39,17 @@ func (m *Message) Serialize(buf *bytes.Buffer) {
 
 	// allow custom length
 	if m.Length == 0 {
-		m.Length = uint16(buf.Len())
+		m.Length = uint16(buf.Len()) //nolint:gosec // buffer length is always within uint16 range
 	}
 
 	var cmdAndLen uint16
 	cmdAndLen |= uint16(m.Flags) << 11
-	cmdAndLen |= uint16(m.Length) & lengthBitmask
+	cmdAndLen |= m.Length & lengthBitmask
 	binary.BigEndian.PutUint16(buf.Bytes(), cmdAndLen)
 }
 
-func Deserialize(log *slog.Logger, buf *bytes.Buffer) (Message, error) {
+// Deserialize reads a message from the buffer.
+func Deserialize(_ *slog.Logger, buf *bytes.Buffer) (Message, error) {
 	msg := Message{}
 	bytes := buf.Next(headerSize)
 	if len(bytes) < headerSize {
@@ -54,7 +57,7 @@ func Deserialize(log *slog.Logger, buf *bytes.Buffer) (Message, error) {
 	}
 
 	cmdAndLen := binary.BigEndian.Uint16(bytes)
-	flags := Flags(cmdAndLen >> 11)
+	flags := Flags(cmdAndLen >> 11) //nolint:gosec // flags are always within uint8 range (5 bits)
 	msg.Flags = flags
 	msg.Length = cmdAndLen & lengthBitmask
 
@@ -76,7 +79,7 @@ func Deserialize(log *slog.Logger, buf *bytes.Buffer) (Message, error) {
 		if err != nil {
 			return msg, errors.Wrap(err, "Failed to read command length")
 		}
-		length = length - 2 // remove length field
+		length -= 2 // remove length field
 
 		pl := buf.Next(int(length))
 		if len(pl) < int(length) {

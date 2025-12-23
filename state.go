@@ -2,6 +2,7 @@ package atem
 
 import "github.com/mraerino/atem-go/models"
 
+// Characteristics describes the capabilities of the ATEM switcher.
 type Characteristics struct {
 	ProductName   string
 	Topology      models.Topology
@@ -13,6 +14,7 @@ type Characteristics struct {
 	MacroBanks    int
 }
 
+// SwitcherState represents the complete state of the ATEM switcher.
 type SwitcherState struct {
 	Version struct {
 		Major int
@@ -38,6 +40,7 @@ type SwitcherState struct {
 	TimeCodeLastChange models.Timecode
 }
 
+// NewSwitcherState creates a new empty switcher state.
 func NewSwitcherState() SwitcherState {
 	return SwitcherState{
 		Inputs: make(map[models.VideoSource]models.InputProperties),

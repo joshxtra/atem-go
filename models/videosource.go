@@ -1,8 +1,11 @@
 package models
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=VideoSource -linecomment
+
+// VideoSource represents a video source identifier.
 type VideoSource uint16
 
+// Video source constants for standard inputs.
 const (
 	VideoSourceBlack   VideoSource = iota // Black
 	VideoSourceInput1                     // Input 1
@@ -45,12 +48,12 @@ const (
 	VideoSourceSuperSource     VideoSource = 6000  // SuperSource
 	VideoSourceCleanFeed1      VideoSource = 7001  // CleanFeed 1
 	VideoSourceCleanFeed2      VideoSource = 7002  // CleanFeed 2
-	VideoSourceAuxilary1       VideoSource = 8001  // Auxilary 1
-	VideoSourceAuxilary2       VideoSource = 8002  // Auxilary 2
-	VideoSourceAuxilary3       VideoSource = 8003  // Auxilary 3
-	VideoSourceAuxilary4       VideoSource = 8004  // Auxilary 4
-	VideoSourceAuxilary5       VideoSource = 8005  // Auxilary 5
-	VideoSourceAuxilary6       VideoSource = 8006  // Auxilary 6
+	VideoSourceAuxiliary1      VideoSource = 8001  // Auxiliary 1
+	VideoSourceAuxiliary2      VideoSource = 8002  // Auxiliary 2
+	VideoSourceAuxiliary3      VideoSource = 8003  // Auxiliary 3
+	VideoSourceAuxiliary4      VideoSource = 8004  // Auxiliary 4
+	VideoSourceAuxiliary5      VideoSource = 8005  // Auxiliary 5
+	VideoSourceAuxiliary6      VideoSource = 8006  // Auxiliary 6
 	VideoSourceME1Prog         VideoSource = 10010 // ME 1 Prog
 	VideoSourceME1Prev         VideoSource = 10011 // ME 1 Prev
 	VideoSourceME2Prog         VideoSource = 10020 // ME 2 Prog

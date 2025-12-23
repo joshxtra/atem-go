@@ -1,8 +1,11 @@
 package models
 
 //go:generate go run golang.org/x/tools/cmd/stringer -type=AudioSource -linecomment
+
+// AudioSource represents an audio source identifier.
 type AudioSource uint16
 
+// Audio source constants for inputs.
 const (
 	AudioSourceInput1  AudioSource = 1 + iota // Input 1
 	AudioSourceInput2                         // Input 2
@@ -25,6 +28,8 @@ const (
 	AudioSourceInput19                        // Input 19
 	AudioSourceInput20                        // Input 20
 )
+
+// Audio source constants for special sources.
 const (
 	AudioSourceXLR    AudioSource = 1001 // XLR
 	AudioSourceAESEBU AudioSource = 1101 // AES/EBU

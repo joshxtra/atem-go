@@ -1,3 +1,4 @@
+// Package packet provides types and functions for serializing and deserializing ATEM protocol packets.
 package packet
 
 import (
@@ -7,6 +8,7 @@ import (
 	"github.com/mraerino/atem-go/packet/cmds"
 )
 
+// Command represents an ATEM protocol command.
 type Command interface {
 	Slug() string
 	encoding.BinaryMarshaler
@@ -82,7 +84,7 @@ func MarshalCommand(cmd Command) ([]byte, error) {
 
 	// length
 	out := make([]byte, 2)
-	binary.BigEndian.PutUint16(out, uint16(len(pl))+8) // 8 bytes "header"
+	binary.BigEndian.PutUint16(out, uint16(len(pl))+8) //nolint:gosec // payload length is always within uint16 range // 8 bytes "header"
 
 	// mystery 2 bytes
 	out = append(out, []byte{0, 0}...)

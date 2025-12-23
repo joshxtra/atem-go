@@ -11,7 +11,9 @@ import (
 )
 
 var (
+	// ErrChannelFull is returned when the timecode request channel is full.
 	ErrChannelFull   = errors.New("Channel for time requests is full")
+	// ErrChannelClosed is returned when the timecode request channel is closed.
 	ErrChannelClosed = errors.New("Channel was closed")
 )
 
