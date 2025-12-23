@@ -37,6 +37,8 @@ type SwitcherState struct {
 	MediaPlayer map[int]*models.MediaPlayer
 	MediaFiles  map[int]models.MediaStillFrame
 
+	KeyerDVE map[string]*models.KeyerDVE // key format: "ME:Keyer"
+
 	TimeCodeLastChange models.Timecode
 }
 
@@ -53,5 +55,6 @@ func NewSwitcherState() SwitcherState {
 
 		MediaPlayer: make(map[int]*models.MediaPlayer),
 		MediaFiles:  make(map[int]models.MediaStillFrame),
+		KeyerDVE:    make(map[string]*models.KeyerDVE),
 	}
 }

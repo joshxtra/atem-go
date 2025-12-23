@@ -319,6 +319,38 @@ func (c *Client) processCommands(log *slog.Logger, msg packet.Message) (init boo
 				}
 			}
 			c.state.TimeCodeLastChange = tc
+		case *cmds.KedvCmd:
+			key := strconv.Itoa(int(t.ME)) + ":" + strconv.Itoa(int(t.Keyer))
+			c.state.KeyerDVE[key] = &models.KeyerDVE{
+				ME:                   t.ME,
+				Keyer:                t.Keyer,
+				Rate:                 t.Rate,
+				SizeX:                t.SizeX,
+				SizeY:                t.SizeY,
+				PositionX:            t.PositionX,
+				PositionY:            t.PositionY,
+				Rotation:             t.Rotation,
+				BorderEnabled:        t.BorderEnabled,
+				BorderOuterWidth:     t.BorderOuterWidth,
+				BorderInnerWidth:     t.BorderInnerWidth,
+				BorderOuterSoftness:  t.BorderOuterSoftness,
+				BorderInnerSoftness:  t.BorderInnerSoftness,
+				BorderBevelSoftness:  t.BorderBevelSoftness,
+				BorderBevelPosition:  t.BorderBevelPosition,
+				BorderBevel:          t.BorderBevel,
+				BorderHue:            t.BorderHue,
+				BorderSaturation:     t.BorderSaturation,
+				BorderLuminance:      t.BorderLuminance,
+				LightSourceDirection: t.LightSourceDirection,
+				LightSourceAltitude:  t.LightSourceAltitude,
+				MaskEnabled:          t.MaskEnabled,
+				MaskTop:              t.MaskTop,
+				MaskBottom:           t.MaskBottom,
+				MaskLeft:             t.MaskLeft,
+				MaskRight:            t.MaskRight,
+				KeyFrame:             t.KeyFrame,
+			}
+			log.Debug("Got keyer DVE", "ME", t.ME, "Keyer", t.Keyer)
 		default:
 			log.Debug("Unhandled packet type")
 		}
