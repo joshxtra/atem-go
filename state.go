@@ -1,6 +1,6 @@
 package atem
 
-import "github.com/mraerino/atem-go/models"
+import "github.com/krombel/atem-go/models"
 
 // Characteristics describes the capabilities of the ATEM switcher.
 type Characteristics struct {

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/mraerino/atem-go/models"
+	"github.com/krombel/atem-go/models"
 )
 
 // MpceCmd represents a media player source command.

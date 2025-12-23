@@ -3,7 +3,7 @@ package cmds
 import (
 	"encoding/binary"
 
-	"github.com/mraerino/atem-go/models"
+	"github.com/krombel/atem-go/models"
 )
 
 // InprCmd represents an input properties command.

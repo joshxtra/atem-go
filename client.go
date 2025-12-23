@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mraerino/atem-go/models"
-	"github.com/mraerino/atem-go/packet"
-	"github.com/mraerino/atem-go/packet/cmds"
+	"github.com/krombel/atem-go/models"
+	"github.com/krombel/atem-go/packet"
+	"github.com/krombel/atem-go/packet/cmds"
 	"github.com/netlify/netlify-commons/util"
 	"github.com/pkg/errors"
 )

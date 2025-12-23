@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/mraerino/atem-go/models"
-	"github.com/mraerino/atem-go/packet"
-	"github.com/mraerino/atem-go/packet/cmds"
+	"github.com/krombel/atem-go/models"
+	"github.com/krombel/atem-go/packet"
+	"github.com/krombel/atem-go/packet/cmds"
 	"github.com/pkg/errors"
 )
 
 var (
 	// ErrChannelFull is returned when the timecode request channel is full.
-	ErrChannelFull   = errors.New("Channel for time requests is full")
+	ErrChannelFull = errors.New("Channel for time requests is full")
 	// ErrChannelClosed is returned when the timecode request channel is closed.
 	ErrChannelClosed = errors.New("Channel was closed")
 )

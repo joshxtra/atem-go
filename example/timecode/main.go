@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mraerino/atem-go"
+	"github.com/krombel/atem-go"
 )
 
 func main() {
