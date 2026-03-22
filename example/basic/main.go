@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/krombel/atem-go"
+	"github.com/joshxtra/atem-go"
 )
 
 func main() {

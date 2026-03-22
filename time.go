@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/krombel/atem-go/models"
-	"github.com/krombel/atem-go/packet"
-	"github.com/krombel/atem-go/packet/cmds"
+	"github.com/joshxtra/atem-go/models"
+	"github.com/joshxtra/atem-go/packet"
+	"github.com/joshxtra/atem-go/packet/cmds"
 	"github.com/pkg/errors"
 )
 

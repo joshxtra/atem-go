@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/krombel/atem-go/models"
-	"github.com/krombel/atem-go/packet"
-	"github.com/krombel/atem-go/packet/cmds"
+	"github.com/joshxtra/atem-go/models"
+	"github.com/joshxtra/atem-go/packet"
+	"github.com/joshxtra/atem-go/packet/cmds"
 	"github.com/netlify/netlify-commons/util"
 	"github.com/pkg/errors"
 )
@@ -38,6 +38,11 @@ type Client struct {
 	stateMutex sync.RWMutex
 
 	timeRequests chan chan models.Timecode
+
+	// StateChanged is notified (non-blocking) whenever program, preview,
+	// or aux state changes. Use a buffered channel of 1 and drain in a
+	// select loop for best results.
+	StateChanged chan struct{}
 }
 
 // NewClient creates a new ATEM client with the default port (9910).
@@ -55,6 +60,7 @@ func NewClientWithPort(log *slog.Logger, host string, port int) *Client {
 		connected: util.NewAtomicBool(false),
 
 		timeRequests: make(chan chan models.Timecode, 100),
+		StateChanged: make(chan struct{}, 1),
 	}
 }
 
@@ -64,6 +70,21 @@ func (c *Client) State() SwitcherState {
 	state := c.state
 	c.stateMutex.RUnlock()
 	return state
+}
+
+// SendCommand sends a command to the ATEM switcher.
+func (c *Client) SendCommand(cmd packet.Command) error {
+	msg := c.makeHeader(packet.FlagACK)
+	msg.Commands = append(msg.Commands, cmd)
+	return c.send(msg)
+}
+
+// notifyStateChanged performs a non-blocking send on StateChanged.
+func (c *Client) notifyStateChanged() {
+	select {
+	case c.StateChanged <- struct{}{}:
+	default:
+	}
 }
 
 // ErrAlreadyStarted is returned when attempting to start an already started client.
@@ -279,10 +300,13 @@ func (c *Client) processCommands(log *slog.Logger, msg packet.Message) (init boo
 			c.state.Inputs[t.SourceIndex] = models.InputProperties(*t)
 		case *cmds.PrgiCmd:
 			c.state.Program[int(t.Bus)] = t.Source
+			c.notifyStateChanged()
 		case *cmds.PrviCmd:
 			c.state.Preview[int(t.Bus)] = t.Source
+			c.notifyStateChanged()
 		case *cmds.AuxsCmd:
 			c.state.Aux[int(t.Bus)] = t.Source
+			c.notifyStateChanged()
 		case *cmds.MpceCmd:
 			mp, ok := c.state.MediaPlayer[int(t.PlayerIndex)]
 			if !ok {

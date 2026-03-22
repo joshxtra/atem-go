@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"github.com/krombel/atem-go/models"
+	"github.com/joshxtra/atem-go/models"
 )
 
 type statusStringCommand string

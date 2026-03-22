@@ -1,4 +1,4 @@
-module github.com/krombel/atem-go
+module github.com/joshxtra/atem-go
 
 go 1.21
 

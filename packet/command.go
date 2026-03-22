@@ -5,7 +5,7 @@ import (
 	"encoding"
 	"encoding/binary"
 
-	"github.com/krombel/atem-go/packet/cmds"
+	"github.com/joshxtra/atem-go/packet/cmds"
 )
 
 // Command represents an ATEM protocol command.

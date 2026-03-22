@@ -3,7 +3,7 @@ package cmds
 import (
 	"encoding/binary"
 
-	"github.com/krombel/atem-go/models"
+	"github.com/joshxtra/atem-go/models"
 )
 
 // TlinCmd represents a tally by index command.

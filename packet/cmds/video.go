@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/krombel/atem-go/models"
+	"github.com/joshxtra/atem-go/models"
 )
 
 type videoSourceState struct {

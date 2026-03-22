@@ -4,7 +4,7 @@ package cmds
 import (
 	"encoding/binary"
 
-	"github.com/krombel/atem-go/models"
+	"github.com/joshxtra/atem-go/models"
 )
 
 // UnknownCommand represents a command that is not yet implemented.
