@@ -126,14 +126,16 @@ func (c *Client) Start(ctx context.Context) error {
 // InitPayload is the initial payload sent to establish a connection with the ATEM switcher.
 var InitPayload = []byte{1, 0, 0, 0, 0, 0, 0, 0}
 
-func (c *Client) sendInit() error {
-	initMSG := c.makeHeader(packet.FlagInit)
-	initMSG.Length = 20 // custom well-known length
-	buf := new(bytes.Buffer)
-	initMSG.Serialize(buf)
-	buf.Write(InitPayload)
+// ConnectHelloPacket is the opening handshake datagram used by atem-connection and the
+// Arduino reference client. Building this programmatically without the remote-sequence
+// byte (0x3a) causes many switchers to ignore the hello silently.
+var ConnectHelloPacket = []byte{
+	0x10, 0x14, 0x53, 0xab, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3a, 0x00, 0x00,
+	0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+}
 
-	_, err := c.conn.Write(buf.Bytes())
+func (c *Client) sendInit() error {
+	_, err := c.conn.Write(ConnectHelloPacket)
 	return err
 }
 
