@@ -28,9 +28,11 @@ type Client struct {
 
 	started   util.AtomicBool
 	connected util.AtomicBool
+	synced    util.AtomicBool
 
-	sessionID uint32 // atomic value (actually uint16)
-	seqNum    uint32 // atomic counter (actually uint16)
+	sessionID     uint32 // atomic value (actually uint16)
+	seqNum        uint32 // atomic counter (actually uint16)
+	lastRemoteSeq atomic.Uint32 // last ATEM packet id accepted (uint16)
 
 	state      SwitcherState
 	stateMutex sync.RWMutex
@@ -56,6 +58,7 @@ func NewClientWithPort(log *slog.Logger, host string, port int) *Client {
 		log:       log,
 		started:   util.NewAtomicBool(false),
 		connected: util.NewAtomicBool(false),
+		synced:    util.NewAtomicBool(false),
 
 		timeRequests: make(chan chan models.Timecode, 100),
 		StateChanged: make(chan struct{}, 1),
@@ -83,6 +86,13 @@ func (c *Client) notifyStateChanged() {
 	case c.StateChanged <- struct{}{}:
 	default:
 	}
+}
+
+// IsSynced reports whether the initial state dump completed (_incm received).
+// Timecode may advance before this during a stuck handshake — do not use
+// timecode alone as a liveness signal.
+func (c *Client) IsSynced() bool {
+	return c.synced.Get()
 }
 
 // ErrAlreadyStarted is returned when attempting to start an already started client.
@@ -149,7 +159,9 @@ func (c *Client) resetSession() {
 	// Match ConnectHelloPacket session id until the switcher assigns one.
 	atomic.StoreUint32(&c.sessionID, 0x53ab)
 	atomic.StoreUint32(&c.seqNum, 0)
+	c.lastRemoteSeq.Store(0)
 	c.connected.Set(false)
+	c.synced.Set(false)
 
 	// init state
 	c.state = NewSwitcherState()
@@ -159,17 +171,16 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 	errCh := make(chan error)
 
 	go func() {
-		var innerCtx context.Context
 		var cancel context.CancelFunc
 		for ctx.Err() == nil {
 			// cancel previous session
 			if cancel != nil {
 				cancel()
 			}
-			innerCtx, cancel = context.WithCancel(ctx)
+			_, cancel = context.WithCancel(ctx)
 
 			c.resetSession()
-			var connected bool
+			var handshakeDone bool
 
 			c.log.Debug("Sending init packet")
 			err := c.sendInit()
@@ -178,15 +189,10 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 				break
 			}
 
-			// ack packets in background
-			ackQueue := make(chan uint16, 20) // seq nums to ack
-			go c.ackWorker(innerCtx, ackQueue)
-
 			// read loop
 			var rerr error
 			for {
 				raw := make([]byte, 1500) // safe size for expected MTU
-				// todo: read deadline
 				n, err := c.conn.Read(raw)
 				if err != nil {
 					rerr = err
@@ -208,24 +214,23 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 				}
 				log.Debug("Read packet", attrs...)
 
+				if msg.Flags.Has(packet.FlagRetrans) {
+					log.Warn("Retransmission detected")
+				}
+
 				oldSession := atomic.SwapUint32(&c.sessionID, uint32(msg.SessionID))
 				if oldSession != uint32(msg.SessionID) {
 					log.Info("Using new session id from switcher", "session", msg.SessionID)
 				}
 
-				if msg.Flags.Has(packet.FlagRetrans) {
-					// todo: handle double sends
-					log.Warn("Retransmission detected")
-				}
-
-				// Hello response: ack immediately and mark established, matching
-				// atem-connection. Debounced acks are too slow for the 3-way handshake.
+				// Hello response: ack immediately and remember its packet id.
 				if msg.Flags.Has(packet.FlagInit) {
+					c.lastRemoteSeq.Store(uint32(msg.SeqNum))
 					if err := c.sendAck(msg.SeqNum); err != nil {
 						log.Warn("Failed to send hello ack", "error", err)
 					}
-					if !connected {
-						connected = true
+					if !handshakeDone {
+						handshakeDone = true
 						c.connected.Set(true)
 						select {
 						case errCh <- nil:
@@ -236,8 +241,9 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 				}
 
 				if msg.Flags.Has(packet.FlagNeedACK) {
-					log.Debug("queueing packet for ack")
-					ackQueue <- msg.SeqNum
+					if err := c.ackRemotePacket(log, msg); err != nil {
+						log.Warn("Failed to send ack", "error", err)
+					}
 				}
 
 				gotInit, err := c.processCommands(log, msg)
@@ -245,15 +251,13 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 					log.Warn("Error while processing commands", "error", err)
 				}
 
-				if gotInit && !connected {
-					connected = true
-					c.connected.Set(true)
-					errCh <- nil // avoid risk of double-closing
+				if gotInit {
+					c.synced.Set(true)
 				}
 			}
 			if rerr != nil {
 				c.log.Warn("Failed to read", "error", rerr)
-				if !connected {
+				if !handshakeDone {
 					errCh <- errors.Wrap(rerr, "Failed to read message")
 				}
 				break
@@ -425,47 +429,24 @@ func (c *Client) handleKeDVCmd(t *cmds.KeDVCmd) {
 	c.state.Keyers[me][keyer] = state
 }
 
-const ackDebounceInterval = time.Millisecond * 20
-const ackMaxDebounce = time.Millisecond * 100
+// ackRemotePacket acknowledges a packet from the switcher, tracking sequence
+// numbers the way atem-connection does. Without this the ATEM retransmits the
+// same 140-byte state chunk indefinitely.
+func (c *Client) ackRemotePacket(log *slog.Logger, msg packet.Message) error {
+	last := uint16(c.lastRemoteSeq.Load())
+	next := last + 1
 
-// since the protocol seems to allow just acking the seq num
-// of the packet that was received last, the actual sending
-// of the ack is debounced to improve performance
-func (c *Client) ackWorker(ctx context.Context, queue <-chan uint16) {
-	timer := time.NewTimer(ackDebounceInterval)
-	timer.Stop() // start with a stopped timer
-
-	lastSend := time.Now()
-	var latestNum uint16
-	for {
-		log := c.log.With("num", latestNum)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			log.Debug("ACK worker stopped", "error", ctx.Err())
-			return
-		case seqNum, open := <-queue:
-			if !open {
-				log.Debug("ACK work channel closed")
-				return
-			}
-			if seqNum > latestNum {
-				latestNum = seqNum
-			}
-			timer.Stop()
-			if time.Since(lastSend) > ackMaxDebounce {
-				timer.Reset(0)
-			} else {
-				timer.Reset(ackDebounceInterval)
-			}
-		case <-timer.C:
-			log.Debug("Ack timer fired. Sending ack...")
-			if err := c.sendAck(latestNum); err != nil {
-				log.Warn("Failed sending ack", "error", err)
-			}
-			lastSend = time.Now()
-		}
+	switch {
+	case msg.SeqNum == next:
+		c.lastRemoteSeq.Store(uint32(msg.SeqNum))
+	case msg.SeqNum == last || msg.Flags.Has(packet.FlagRetrans):
+		// Retransmit of the last accepted packet — ack again.
+	default:
+		log.Warn("Out-of-order ATEM packet",
+			"seq", msg.SeqNum, "expected", next, "last", last)
 	}
+
+	return c.sendAck(msg.SeqNum)
 }
 
 // sendAck sends a header-only ACK. Local sequence numbers must NOT advance for

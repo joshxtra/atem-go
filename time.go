@@ -21,7 +21,7 @@ var (
 //
 // The context can be used to provide a timeout
 func (c *Client) Timecode(ctx context.Context) (*models.Timecode, error) {
-	msg := c.makeHeader(packet.FlagACK)
+	msg := c.makeHeader(packet.FlagNeedACK)
 	msg.Commands = append(msg.Commands, cmds.TiRqCmd{})
 	if err := c.send(msg); err != nil {
 		return nil, errors.Wrap(err, "failed to send request")
