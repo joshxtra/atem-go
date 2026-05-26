@@ -4,8 +4,6 @@ package atem
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/binary"
 	"log/slog"
 	"net"
 	"strconv"
@@ -74,7 +72,7 @@ func (c *Client) State() SwitcherState {
 
 // SendCommand sends a command to the ATEM switcher.
 func (c *Client) SendCommand(cmd packet.Command) error {
-	msg := c.makeHeader(packet.FlagACK)
+	msg := c.makeHeader(packet.FlagNeedACK)
 	msg.Commands = append(msg.Commands, cmd)
 	return c.send(msg)
 }
@@ -148,10 +146,8 @@ func (c *Client) send(msg *packet.Message) error {
 }
 
 func (c *Client) resetSession() {
-	var sessionIDBytes [4]byte
-	_, _ = rand.Read(sessionIDBytes[:])
-	sessionID := binary.BigEndian.Uint32(sessionIDBytes[:])
-	atomic.StoreUint32(&c.sessionID, sessionID)
+	// Match ConnectHelloPacket session id until the switcher assigns one.
+	atomic.StoreUint32(&c.sessionID, 0x53ab)
 	atomic.StoreUint32(&c.seqNum, 0)
 	c.connected.Set(false)
 
@@ -222,9 +218,21 @@ func (c *Client) startHandleMessages(ctx context.Context) chan error {
 					log.Warn("Retransmission detected")
 				}
 
+				// Hello response: ack immediately and mark established, matching
+				// atem-connection. Debounced acks are too slow for the 3-way handshake.
 				if msg.Flags.Has(packet.FlagInit) {
-					// always ack init packets
-					msg.Flags |= packet.FlagNeedACK
+					if err := c.sendAck(msg.SeqNum); err != nil {
+						log.Warn("Failed to send hello ack", "error", err)
+					}
+					if !connected {
+						connected = true
+						c.connected.Set(true)
+						select {
+						case errCh <- nil:
+						default:
+						}
+					}
+					continue
 				}
 
 				if msg.Flags.Has(packet.FlagNeedACK) {
@@ -452,16 +460,25 @@ func (c *Client) ackWorker(ctx context.Context, queue <-chan uint16) {
 			}
 		case <-timer.C:
 			log.Debug("Ack timer fired. Sending ack...")
-			// defer timer fired, actually send ack
-			msg := c.makeHeader(packet.FlagACK)
-			msg.AckID = latestNum
-			err := c.send(msg)
-			if err != nil {
+			if err := c.sendAck(latestNum); err != nil {
 				log.Warn("Failed sending ack", "error", err)
 			}
 			lastSend = time.Now()
 		}
 	}
+}
+
+// sendAck sends a header-only ACK. Local sequence numbers must NOT advance for
+// ack-only packets (OpenSwitcher / atem-connection both keep seq at 0).
+func (c *Client) sendAck(ackID uint16) error {
+	msg := &packet.Message{
+		Flags:     packet.FlagsFrom(packet.FlagACK),
+		Length:    packet.HeaderSize,
+		SessionID: uint16(atomic.LoadUint32(&c.sessionID)), //nolint:gosec
+		AckID:     ackID,
+		SeqNum:    0,
+	}
+	return c.send(msg)
 }
 
 func (c *Client) makeHeader(flags ...packet.Flags) *packet.Message {

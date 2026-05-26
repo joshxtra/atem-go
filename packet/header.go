@@ -20,7 +20,9 @@ type Message struct {
 	Commands []Command
 }
 
-const headerSize = 12
+const HeaderSize = 12
+
+const headerSize = HeaderSize
 const lengthBitmask = 0xFFFF >> 5 // first 5 bits are preserved for flags
 
 // Serialize writes the message to the buffer.
